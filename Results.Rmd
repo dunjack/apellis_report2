@@ -1,0 +1,292 @@
+---
+title: "Results"
+output: word_document
+---
+
+
+```{r cars}
+# Packages
+library(dplyr)
+library(tidyr)
+library(table1)
+library(data.table)
+library(lubridate)
+library(stringr)
+library(scales)
+library(fuzzyjoin)
+library(stringr)
+library(ggplot2)
+library(eye)
+
+
+#############
+# BASELINE INFO 
+# dimpat
+dimpat <- as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/190915_dimpat.csv", header = TRUE, stringsAsFactors = FALSE)) %>%
+  mutate(patkey = as.character(PatKey),
+         dob = ymd(DOB),
+         gender = case_when(
+           SexName == "Male" ~ "m",
+           SexName == "Female" ~ "f"),
+         ethnicity = case_when(
+           EthnicityName == "Indian" ~ "se_asian",
+           EthnicityName == "British" ~ "caucasian",
+           EthnicityName == "Caribbean" ~ "afrocarribean",
+           EthnicityName == "African" ~ "afrocarribean",
+           EthnicityName == "Pakistani" ~ "se_asian",
+           EthnicityName == "Chinese" ~ "chinese",
+           EthnicityName == "Bangladeshi" ~ "se_asian",
+           EthnicityName == "Irish" ~ "caucasian",
+           EthnicityName == "Any other White background" ~ "caucasian",
+           EthnicityName == "Any other Black background" ~ "afrocarribean",
+           EthnicityName == "Any other Asian background" ~ "se_asian",
+           EthnicityName == "White and Black African" ~ "mixed",
+           EthnicityName == "White and Black Caribbean" ~ "mixed",
+           EthnicityName == "Any other mixed background" ~ "mixed",
+           T~ "unknown"),
+         postcode = PostCode) %>%
+  select(patkey, gender, dob, ethnicity, postcode) %>%
+  distinct(patkey, .keep_all = T)
+
+
+################################
+# Collecting VA
+################################
+# Inj amd -VA
+va_injamd <- as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/AMD/version_20181121.csv", header = TRUE, stringsAsFactors = FALSE)) %>%
+  mutate(
+    patkey = as.character(PatKey),
+    eye = case_when(
+      Eye == "Right" ~ "r", 
+      Eye == "Left" ~ "l"),
+    patkey = as.character(PatKey),
+    app_dat = ymd(AppointmentDate),
+    va = as.integer(VA_ETDRS)) %>% 
+  select(patkey, eye, app_dat, va, PriorAvastin, PriorMacugen, PriorPDT, PDT, PriorLaser) %>%
+  filter(!is.na(PriorAvastin) | 
+           !is.na(PriorMacugen) | 
+           !is.na(PriorPDT) | 
+           !is.na(PDT) | 
+           !is.na(PriorLaser)) %>%
+  filter(!is.na(va)) %>%
+  select(patkey, eye, app_dat, va) 
+
+# other inj va
+va_inj <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/20200211_injva.csv", header = TRUE, stringsAsFactors = FALSE)) %>%
+  mutate(
+    patkey = as.character(Patkey),
+    app_dat = ymd(ExaminationDateKeyN),
+    l = va(LvalueEtdrs, to = "etdrs"),
+    r = va(RvalueEtdrs, to = "etdrs")) %>%
+  select(patkey, app_dat, l, r)  %>%
+  gather(l, r, key = "eye", value = 'va' )%>%
+  filter(!is.na(va)) 
+
+
+# non_inj VA
+va_noninj <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/20200211_noninjva.csv", header = TRUE, stringsAsFactors = FALSE))  %>%
+  mutate(
+    patkey = as.character(Patkey),
+    app_dat = ymd(ExaminationDateKeyN),
+    l = va(LvalueEtdrs, to = "etdrs"),
+    r = va(RvalueEtdrs, to = "etdrs")) %>%
+  select(patkey, app_dat, l, r)  %>%
+  gather(l, r, key = "eye", value = 'va' )%>%
+  filter(!is.na(va)) 
+
+all_va <- rbind(va_inj, va_injamd,va_noninj) %>%
+  distinct(patkey, app_dat, eye, va)
+
+
+#########################################
+# MEH dataset from Report 1
+#########################################
+### ### From Report 1 ### ###
+# those graded & with pathology annotated per 
+d_meh_report1_pathology <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/dataset_meh_meta.csv", header = T, stringsAsFactors = FALSE)) %>%
+  select(patkey, eye, pathology, X2.meta.exam.scan_datetime) %>%
+  mutate(
+    patkey = as.character(patkey),
+    pathology = case_when(
+      pathology == "GA" ~ "ga", 
+      pathology == "ga other" ~ "ga", 
+      pathology == "ga amn other" ~ "ga", 
+      pathology == "ERM" ~ "erm", 
+      pathology == "PED" ~ "ped", 
+      pathology == "PED and other" ~ "ped", 
+      pathology == "ga ped other" ~ "ped", 
+      pathology == "ped other" ~ "ped", 
+      pathology == "ped , other" ~ "ped", 
+      pathology == "other" ~ "namd", 
+      pathology == "IRF SRF" ~ "namd", 
+      T ~ "ga"),
+      dat_scan = dmy_hm(X2.meta.exam.scan_datetime )) %>%
+  mutate(dat_scan = date(dat_scan))  %>%
+  select(-X2.meta.exam.scan_datetime)
+
+# filepaths of all that were originally extracted 
+# They only graded 192 out of 195 - maybe because of quality
+# Patients 110 Eyes 171
+d_meh_report1 <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/dataset_meh_patkey.csv", header = T, stringsAsFactors = FALSE)) %>%
+  mutate(patkey = as.character(patkey), 
+         dat_scan = dmy_hm(dat_scan)) %>%
+  mutate(dat_scan = date(dat_scan))  %>%
+  select(patkey, eye, dat_scan, filepath) %>%
+  inner_join(d_meh_report1_pathology, by = c("patkey", "eye", "dat_scan"))
+
+
+### ### Compile a dataset of 1 scan per eye with preference for GAs
+# GA: Pt 91 Eyes 142
+d_meh_report1_ga <- d_meh_report1 %>%
+  filter(pathology == "ga") %>%
+  distinct(patkey, eye,.keep_all = T) %>%
+  ungroup()
+
+count(d_meh_report1_ga %>% distinct(patkey))
+count(d_meh_report1_ga %>% distinct(patkey,eye))
+
+# Non-GA: Eyes 29
+d_meh_report1_nonga <- d_meh_report1 %>%
+  anti_join(d_meh_report1_ga, by = c("patkey", "eye")) %>%
+  distinct(patkey, eye,.keep_all = T) %>%
+  ungroup()
+  
+
+d_meh_report1 <- rbind(d_meh_report1_ga, d_meh_report1_nonga ) 
+
+# Join on VAs within 90 days
+d_meh_report1_va_match <- d_meh_report1 %>%
+  left_join(all_va, by = c("patkey", "eye")) %>%
+  filter(abs(dat_scan - app_dat) < 90) %>%
+  group_by(patkey, eye) %>%
+  slice(which.min(abs(dat_scan - app_dat))) %>%
+  ungroup()
+
+
+
+#################
+# take this forward for ...
+#################
+# 46 with VAs ; ;125 withOUT
+d_meh_report1 <- d_meh_report1 %>%
+  left_join(d_meh_report1_va_match) 
+
+
+
+#########################################
+# MEH dataset outwidth Report 1
+#########################################
+### ### From Report 1 ### ###
+d_meh <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/211020_meh_ga_octs_query.csv", header = T, stringsAsFactors = FALSE)) %>%
+  mutate(
+    patkey = as.character(PatKey),
+    eye = case_when(
+      laterality == "R" ~ "r", 
+      laterality == "L" ~ "l"),
+    dob = ymd(DOB),
+    dat_scan = ymd_hms(examDateTime)) %>%
+  mutate(dat_scan = date(dat_scan)) %>%
+  select(patkey, eye, dob, dat_scan, directoryUncPath, fileName) 
+
+
+count(d_meh %>% distinct(patkey)) #2580
+count(d_meh %>% distinct(patkey,eye)) #4991
+
+
+multi_scan <- d_meh %>%
+  distinct(patkey, eye, dat_scan) %>% # i.e. want the scans to be on different dates
+  count(patkey,eye) %>%
+  filter(n >= 5)
+
+# These would be a selection of MEH OCTs that are likely to be GA & with VAs
+# but do NOT have Foveas annotated
+d_meh_foveal_annotated <- d_meh %>%
+  semi_join(multi_scan, by = c("patkey", "eye")) %>% # more than 6 scans on 6 different dates
+  anti_join(d_meh_report1, by = "patkey") %>%
+  anti_join(va_injamd, by = c("patkey", "eye")) %>% # ie not been injected
+
+  left_join(all_va, by = c("patkey", "eye")) %>%
+  filter( dat_scan == app_dat) %>% # its a direct match here but we can go more loose of course
+  group_by(patkey, eye) %>%
+  slice(which.min(abs(dat_scan - app_dat))) %>%
+  ungroup() %>%
+  filter(dat_scan < "2018-01-01") %>%
+  distinct(patkey, .keep_all = T) %>% # 1 eye per patient
+  head(200)
+
+  
+############
+# MEH Merge
+#  TABLE & Export
+##########
+
+d_meh_all <- rbind(
+  (d_meh_report1 %>%
+     select(patkey, eye, dat_scan, filepath, va) %>%
+     mutate(directoryUncPath = NA)),
+  (d_meh_foveal_annotated %>%
+     mutate(filepath = fileName) %>% 
+     select(patkey, eye, dat_scan, filepath, va, directoryUncPath)
+  ))
+
+# Export for foveal annotation
+
+forfovealannotate <- d_meh_all
+
+write.csv(forfovealannotate, file = "210121_meh_tobeannotatedd.csv")
+
+
+d_meh_all <- d_meh_all %>%
+  left_join(dimpat, by = "patkey") %>%
+  mutate(age = interval(dob, dat_scan) / years(1))
+
+
+# Tables
+library(table1)
+
+d_meh_all$ethnicity    <- factor(d_meh_all$ethnicity,
+                         levels=c("afrocaribbean", "asian", "caucasian","Other","unknown"), 
+                         labels=c( "Afro Caribbean", "Asian",  "Caucasian", "Other","Unknown"))
+
+d_meh_all$gender    <- factor(d_meh_all$gender,
+                                 levels=c("f", "m"), 
+                                 labels=c( "Female", "Male"))
+
+
+label(d_meh_all$age)    <- "Age"
+label(d_meh_all$ethnicity)      <- "Ethnicity"
+label(d_meh_all$gender)    <- "Gender"
+label(d_meh_all$va)    <- "Visual acuity"
+
+units(d_meh_all$age)      <- "years"
+units(d_meh_all$va)      <- "ETDRS letters"
+
+my.render.cont <- function(x) {
+  with(stats.apply.rounding(stats.default(x), digits=2), c("",
+                                                           "Mean (SD)"=sprintf("%s (&plusmn; %s)", MEAN, SD)))
+}
+
+rndr <- function(x, name, ...) {
+  if (length(x) == 0) {
+    y <- d[[name]]
+    s <- rep("", length(render.default(x=y, name=name, ...)))
+    if (is.numeric(y)) {
+      p <- t.test(y ~ d$first_app_type)$p.value
+    } else {
+      p <- chisq.test(table(y, droplevels(d$first_app_type)))$p.value
+    }
+    s[2] <- sub("<", "&lt;", format.pval(p, digits=3))
+    s
+  } else {
+    render.default(x=x, name=name, ...)
+  }
+}
+
+rndr.strat <- function(label, n, ...) {
+  ifelse(n==0, label, render.strat.default(label, n, ...))
+}
+
+
+table1(~gender + age + ethnicity + va ,
+       data=d_meh_all, droplevels=T,render=rndr, render.strat=rndr.strat, overall="Overall",   output = "markdown")
+```
