@@ -161,11 +161,11 @@ ga_prob <- as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis
 
 
 area_total <- df %>%
-  left_join(esl_area) %>%
-  left_join(ga_area) %>%
-  left_join(htr_area) %>%
-  left_join(rpe_area) %>%
-  select( cohort, va,
+  inner_join(esl_area) %>%
+  inner_join(ga_area) %>%
+  inner_join(htr_area) %>%
+  inner_join(rpe_area) %>%
+  select( cohort, va, llva,
          esl_area_total, rpe_area_total, htr_area_total, ga_area_total, 
          esl_area_1, rpe_area_1, htr_area_1, ga_area_1) %>%
   mutate(
@@ -181,9 +181,11 @@ area_total <- df %>%
 library(table1)
 
 ### 
-area_total$cohort    <- factor(area_total$cohort, levels=c("FILLY2", "MEH", 2), labels=c("FILLY2", "MEH", "P-value"))
+area_total$cohort    <- factor(area_total$cohort, levels=c("filly2", "meh", 2), labels=c("FILLY2", "MEH", "P-value"))
 
 label(area_total$va)    <- "Visual acuity"
+label(area_total$llva)    <- "Low luminescence Visual acuity"
+
 label(area_total$rpe_area_total)    <- "RPE-loss"
 label(area_total$esl_area_total)    <- "Photoreceptor degeneration"
 label(area_total$htr_area_total)    <- "Hypertransmission"
@@ -222,8 +224,13 @@ rndr.strat <- function(label, n, ...) {
 }
 
 
-table1(~. |cohort ,
+table1(~ va + rpe_area_1 + esl_area_1 + htr_area_1 + ga_area_1|cohort ,
        data=area_total, droplevels=F,render=rndr, render.strat=rndr.strat, overall="Overall")
+
+
+table1(~ va + llva |cohort ,
+       data=area_total, droplevels=F,render=rndr, render.strat=rndr.strat, overall=F)
+
 
 
 
@@ -235,48 +242,60 @@ table1(~. |cohort ,
 df_distr_va <- df %>%
   mutate(cohort = "overall") %>%
   rbind(df) %>%
+  rbind(df %>% 
+          filter(cohort == "filly2") %>%
+          mutate(cohort = "filly2_2",
+                 va = llva) 
+          ) %>% # Plus Low Luminescence VA
   ggplot(aes(x = factor(cohort, 
-                        levels=c("overall", "FILLY2", "MEH"), 
-                        labels=c("Overall","FILLY2", "MEH")), 
+                        levels=c("overall", "filly2", "meh","filly2_2"), 
+                        labels=c("Overall","FILLY2", "MEH","FILLY2_2")), 
              y= va, 
              group = factor(cohort, 
-                            levels=c("overall", "FILLY2", "MEH"),
-                            labels=c("Overall","FILLY2", "MEH")))) +
-  stat_boxplot(geom = "errorbar", width = 0.2, position = position_nudge(x = -0.3)) + 
-  geom_boxplot(width= 0.2, fill = "darkgrey", position = position_nudge(x = -0.3), outlier.size = 0.3) +
-  geom_dotplot(binaxis = "y", binwidth = 0.5, dotsize = 0.5) + 
+                            levels=c("overall", "filly2", "meh","filly2_2"), 
+                            labels=c("Overall","FILLY2", "MEH","FILLY2_2")))) +
+  geom_violinhalf(width = 0.5, fill = NA, linetype = "dotted") +
+  stat_boxplot(geom = "errorbar", width = 0.3, position = position_nudge(x = -0.3)) + 
+  geom_boxplot(width= 0.2, fill = c("white","white","white","darkgrey"), position = position_nudge(x = -0.3), outlier.size = 0.3) +
+  geom_dotplot(binaxis = "y", binwidth = 0.75, dotsize = 0.2) + 
   theme_bw() +
   labs(
     x = "",
-    y = "Visual acuity (ETDRS letters)") +
-  ggtitle("Distribution of visual acuity")
+    y = "ETDRS letters") +
+  scale_y_continuous(breaks=seq(0, 120, 10))
 
-ggsave(df_distr_va, file="df_distr_va.png", width = 5, height = 7.5)
+ggsave(df_distr_va, file="df_distr_va.png", width = 6.5, height = 5.5)
 
 
 df_distr_area <- area_total %>%
-  gather("feature", "value", 3:6) %>%
+  gather("feature", "value", 4:7) %>%
   mutate(cohort = "overall") %>%
   rbind(  area_total %>%
-            gather("feature", "value", 3:6) ) %>%
+            gather("feature", "value", 4:7) ) %>%
   ggplot(aes(x = factor(cohort, 
-                        levels=c("overall", "FILLY2", "MEH"), 
+                        levels=c("overall", "filly2", "meh"), 
                         labels=c("Overall","FILLY2", "MEH")), 
-             y= value)) +
+             y= value,
+             color = feature )) +
+  geom_violinhalf(width = 0.5, fill = NA, linetype = "dotted") +
   stat_boxplot(geom = "errorbar", width = 0.2, position = position_nudge(x = -0.3)) + 
-  geom_boxplot(width= 0.2, fill = "darkgrey", position = position_nudge(x = -0.3), outlier.size = 0.3) +
-  geom_dotplot(binaxis = "y", binwidth = 1.5, dotsize = 0.05) + 
+  geom_boxplot(width= 0.2, fill = "white", position = position_nudge(x = -0.3), outlier.size = 0.3) +
+  geom_dotplot(binaxis = "y", binwidth = 1.0, dotsize = 0.05) + 
   theme_bw() +
   scale_y_continuous(limits=c(0, 30), breaks = seq(0,40,5))+
   labs(
     x = "",
-    y =  expression(paste("Area (mm"^"2",")"))) +
-  ggtitle("Distribution of feature area") + 
+    y =  expression(paste("Area (mm"^"2",")")),
+    color = "") +
+  ggtitle("") + 
   facet_wrap(~ factor(feature,
                       levels = c("rpe_area_total", "esl_area_total", "htr_area_total", "ga_area_total"),
-                      labels = c("RPE-loss", "Photoreceptor degeneration", "Hypertransmission", "Geographic atrophy")), nrow =1)
+                      labels = c("RPE-loss", "Photoreceptor degeneration", "Hypertransmission", "RORA")), nrow =2) +
+  scale_colour_manual(values = c("#1380A1", "#588300","#990000", "#b57807" )) + 
+  theme(legend.position='none')
 
-ggsave(df_distr_area, file="df_distr_area.png", width = 18, height = 7.5)
+ggsave(df_distr_area, file="df_distr_area.png", width = 12, height = 11)
+
 
 
 

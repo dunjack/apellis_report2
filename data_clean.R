@@ -10,6 +10,7 @@ library(fuzzyjoin)
 library(stringr)
 library(ggplot2)
 library(eye)
+library(see)
 
 
 #############
@@ -173,7 +174,7 @@ d_apel_va <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apel
   filter(!is.na(va)) 
 
 # OCTs 
-d_apel_oct <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/210216_fillyOCTs_processing.csv", header = T, stringsAsFactors = FALSE)) %>%
+d_apel_oct1 <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/210216_fillyOCTs_processing.csv", header = T, stringsAsFactors = FALSE)) %>%
   mutate(patkey = as.character(Subject), 
          dat_app = dmy(RecordDay),
          oct = case_when(SID >= 1 ~ "1",
@@ -185,6 +186,29 @@ d_apel_oct <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/ape
          time = TargetDay,
          sdb = paste0((str_pad(SID, 8, pad = "0")),".sdb" ),
          pat = paste0((str_pad(PID, 8, pad = "0")),".pat" ))
+
+
+d_apel_oct_segmentation <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/210217_segmentation_sizes.csv", header = T, stringsAsFactors = FALSE)) %>%
+  mutate(
+    sdb = paste0((str_pad(sdb, 8, pad = "0")),".sdb" ),
+    pat = paste0((str_pad(pdb, 8, pad = "0")),".pat" ) 
+  ) %>%
+  select(sdb, pat, segmentation_size)
+
+d_apel_oct <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/210217_fillyOCTs_processing.csv", header = T, stringsAsFactors = FALSE)) %>%
+  mutate(patkey = as.character(Subject), 
+         dat_app = dmy(RecordDay),
+         oct = case_when(SID >= 1 ~ "1",
+                         T ~ "0"),
+         eye = case_when(
+           BCEYE =="O.S." ~ "l",
+           BCEYE =="O.D." ~ "r"), 
+         va = TVAS_bcva,
+         time = TargetDay,
+         sdb = paste0((str_pad(SID, 8, pad = "0")),".sdb" ),
+         pat = paste0((str_pad(PID, 8, pad = "0")),".pat" )) %>%
+  left_join(d_apel_oct_segmentation, by = c("sdb", "pat")) %>%
+  filter(!is.na(segmentation_size))
 
 
 d_apel_fellow_pathology <-  as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/210216_filly_felloweyepathology.csv", header = T, stringsAsFactors = FALSE)) %>%
@@ -204,7 +228,8 @@ d_apel_base_fellow <- d_apel_oct %>%
 d_apel_base_study <- d_apel_oct %>%
   filter(time == "-14") %>% # baseline 
   filter(segmentation_size == "(47, 512)"
-         | segmentation_size == "(49, 512)") %>%
+         | segmentation_size == "(49, 512)"
+         | segmentation_size == "(97, 512)") %>%
   filter(Study.Fellow =="S")
 
 
@@ -216,12 +241,14 @@ d_apel_base <- d_apel_base_study %>%
   select(-dob, -va) %>%
   left_join(d_apel_va, by = c("patkey", "eye")) %>% # Match on VA within 14 days
   group_by(patkey, eye) %>%
-  filter(abs(dat_va - dat_app) < 14) %>%
+  filter(abs(dat_va - dat_app) < 15) %>%
   slice(which.min(abs(dat_va - dat_app))) %>%
   ungroup() %>%
-  select(patkey, eye, pat, sdb, va, llva, gender, ethnicity1, age, cohort, filepath, 13:16)
-
+  select(patkey, eye, pat, sdb, va, llva, gender, ethnicity1, age, cohort) %>%
+  filter(!pat == "00000069.pat"
+         &!pat == "00000073.pat") #late downloads that couldn't be annotated
   
+
 #########################################
 # DATAFRAME Merge
 #########################################
@@ -231,9 +258,8 @@ df <-  d_apel_base %>%
     (d_meh %>%
        mutate(va = as.numeric(va)) %>%
        select(patkey, eye, pat, sdb, va, gender, ethnicity, age, cohort) ))
-
-
   
+
 
 # What Sophie has so far
 # df <- as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/trial_cohort/210204_df_complete_v1.csv", header = T, stringsAsFactors = FALSE))  %>%

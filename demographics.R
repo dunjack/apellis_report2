@@ -56,7 +56,7 @@ rndr.strat <- function(label, n, ...) {
 }
 
 
-table1(~gender + age + ethnicity  | cohort,
+table1(~gender + age + ethnicity +ethnicity1 | cohort,
        data=(df %>% distinct(patkey,.keep_all = T)), droplevels=F,render=rndr, render.strat=rndr.strat, overall="Overall")
 
 
