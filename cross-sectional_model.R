@@ -29,15 +29,15 @@ d <- df %>%
   inner_join(ga_prob) %>%
   inner_join(htr_prob) %>%
   inner_join(rpe_prob) %>%
-  select(va
-         ,17:56
-         , -ga_prob_total, -esl_prob_total, -htr_prob_total, -rpe_prob_total
+  # select(va
+  #        ,17:56
+  #        , -ga_prob_total, -esl_prob_total, -htr_prob_total, -rpe_prob_total
          # , ga_prob_2, esl_prob_2, htr_prob_2, rpe_prob_2
          # , ga_prob_3, esl_prob_3, htr_prob_3, rpe_prob_3
          # , ga_prob_4, esl_prob_4, htr_prob_4, rpe_prob_4
          # , ga_prob_5, esl_prob_5, htr_prob_5, rpe_prob_5
-         ) %>% 
-  filter(!is.na(esl_prob_1))
+         # ) %>% 
+  filter(!is.na(llva))
 
 
 ########################################################
@@ -81,7 +81,7 @@ va_all_allfeatures_fovea <- train(va ~ ga_prob_1 + rpe_prob_1 + esl_prob_1 + htr
                          trControl = train.control)
 
 
-va_all_allfeatures_allregions <- train(va ~ 
+va_all_allfeatures_allregions <- train(llva ~ 
                                          ga_prob_1 + ga_prob_2 + ga_prob_3 + ga_prob_4 + ga_prob_5 + ga_prob_6 + ga_prob_7 + ga_prob_8
                                        + rpe_prob_1 + rpe_prob_2 + rpe_prob_3 + rpe_prob_4 + rpe_prob_5 + rpe_prob_6 + rpe_prob_7 + rpe_prob_8
                                        + esl_prob_1 + esl_prob_2 + esl_prob_3 + esl_prob_4 + esl_prob_5 + esl_prob_6 + esl_prob_7 + esl_prob_8

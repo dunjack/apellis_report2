@@ -166,8 +166,8 @@ area_total <- df %>%
   inner_join(htr_area) %>%
   inner_join(rpe_area) %>%
   select( cohort, va, llva,
-         esl_area_total, rpe_area_total, htr_area_total, ga_area_total, 
-         esl_area_1, rpe_area_1, htr_area_1, ga_area_1) %>%
+          esl_area_total, rpe_area_total, htr_area_total, ga_area_total, 
+          esl_area_1, rpe_area_1, htr_area_1, ga_area_1) %>%
   mutate(
     esl_area_1 = signif(esl_area_1 / 0.79 * 100,2),
     rpe_area_1 = signif(rpe_area_1 / 0.79 * 100,2),
@@ -225,6 +225,10 @@ rndr.strat <- function(label, n, ...) {
 
 
 table1(~ va + rpe_area_1 + esl_area_1 + htr_area_1 + ga_area_1|cohort ,
+       data=area_total, droplevels=F,render=rndr, render.strat=rndr.strat, overall="Overall")
+
+
+table1(~ va + rpe_area_total + esl_area_total + htr_area_total + ga_area_total|cohort ,
        data=area_total, droplevels=F,render=rndr, render.strat=rndr.strat, overall="Overall")
 
 
