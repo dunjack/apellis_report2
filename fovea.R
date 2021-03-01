@@ -13,7 +13,8 @@ d_fovea <- do.call(bind_rows, lapply(files, function(x) read.csv(x, stringsAsFac
     sdb = case_when(
       is.na(sdb) ~ sid, 
       T ~ sdb)) %>%
-  filter(gradable == "Yes")
+  filter(gradable == "Yes"
+        | is.na(gradable))
 
 
  setwd("/Users/dunistrator/Desktop/Dropbox/dj_desktop/Research/")
@@ -29,3 +30,8 @@ filepaths <- as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apell
   
 
 write.csv(x, file = "210225_fillyremaining.csv")
+
+x <- as.data.frame(read.csv("/Users/Dunistrator/Documents/MEH_data/apellis/fovea/210225_fillyremaining_fovea_annotated.csv", header = T, stringsAsFactors = FALSE)) 
+
+head(x)
+  

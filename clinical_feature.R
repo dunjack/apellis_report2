@@ -165,7 +165,7 @@ area_total <- df %>%
   inner_join(ga_area) %>%
   inner_join(htr_area) %>%
   inner_join(rpe_area) %>%
-  select( cohort, va, llva,
+  select( cohort, va, llva, lld,
           esl_area_total, rpe_area_total, htr_area_total, ga_area_total, 
           esl_area_1, rpe_area_1, htr_area_1, ga_area_1) %>%
   mutate(
@@ -232,7 +232,9 @@ table1(~ va + rpe_area_total + esl_area_total + htr_area_total + ga_area_total|c
        data=area_total, droplevels=F,render=rndr, render.strat=rndr.strat, overall="Overall")
 
 
-table1(~ va + llva |cohort ,
+
+
+table1(~ va + llva + lld |cohort ,
        data=area_total, droplevels=F,render=rndr, render.strat=rndr.strat, overall=F)
 
 
@@ -251,16 +253,23 @@ df_distr_va <- df %>%
           mutate(cohort = "filly2_2",
                  va = llva) 
           ) %>% # Plus Low Luminescence VA
+  rbind(df %>% 
+          filter(cohort == "filly2"
+                 &lld >=0) %>%
+          mutate(cohort = "filly2_3",
+                 va = lld) 
+  ) %>% # Plus LLD
   ggplot(aes(x = factor(cohort, 
-                        levels=c("overall", "filly2", "meh","filly2_2"), 
-                        labels=c("Overall","FILLY2", "MEH","FILLY2_2")), 
+                        levels=c("overall", "filly2", "meh","filly2_2", "filly2_3"), 
+                        labels=c("Overall","FILLY2", "MEH","FILLY2_2","FILLY2_3")), 
              y= va, 
              group = factor(cohort, 
-                            levels=c("overall", "filly2", "meh","filly2_2"), 
-                            labels=c("Overall","FILLY2", "MEH","FILLY2_2")))) +
+                            levels=c("overall", "filly2", "meh","filly2_2", "filly2_3"), 
+                            labels=c("Overall","FILLY2", "MEH","FILLY2_2","FILLY2_3")))) +
   geom_violinhalf(width = 0.5, fill = NA, linetype = "dotted") +
   stat_boxplot(geom = "errorbar", width = 0.3, position = position_nudge(x = -0.3)) + 
-  geom_boxplot(width= 0.2, fill = c("white","white","white","darkgrey"), position = position_nudge(x = -0.3), outlier.size = 0.3) +
+  geom_boxplot(width= 0.2, fill = c("white","white","white","darkgrey", "black"), 
+               position = position_nudge(x = -0.3), outlier.size = 0.3) +
   geom_dotplot(binaxis = "y", binwidth = 0.75, dotsize = 0.2) + 
   theme_bw() +
   labs(
